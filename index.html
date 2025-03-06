@@ -4,16 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat!</title>
+    <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.4.34.0.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; }
-        #chat { display: none; max-width: 400px; margin: auto; border: 1px solid #ccc; padding: 10px; }
-        #messages { height: 200px; overflow-y: scroll; border-bottom: 1px solid #ccc; }
+        #chat { max-width: 400px; margin: auto; border: 1px solid #ccc; padding: 10px; display: none; }
+        #messages { height: 200px; overflow-y: scroll; border-bottom: 1px solid #ccc; padding: 5px; text-align: left; }
         input, button { width: 100%; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <h2>Peer-to-Peer Chat Room</h2>
+    <h2>DA CHAT!</h2>
     
     <div id="login">
         <input type="text" id="nameInput" placeholder="Enter your name">
@@ -27,10 +28,14 @@
     </div>
 
     <script>
+        const PUB_KEY = "pub-c-f110f46c-fc5d-4aad-a5e2-ff830c8a1e32";  // Replace with your PubNub Publish Key
+        const SUB_KEY = "sub-c-bc15ba6d-13a3-4ceb-8a37-be37d25eaa8f"; // Replace with your PubNub Subscribe Key
+
         let userName = "";
-        let peerConnection;
-        let dataChannel;
-        const messagesDiv = document.getElementById("messages");
+        const pubnub = new PubNub({
+            publishKey: PUB_KEY,
+            subscribeKey: SUB_KEY
+        });
 
         function joinChat() {
             userName = document.getElementById("nameInput").value.trim();
@@ -38,46 +43,28 @@
                 alert("Please enter your name.");
                 return;
             }
-            
+
             document.getElementById("login").style.display = "none";
             document.getElementById("chat").style.display = "block";
 
-            startPeerConnection();
-        }
-
-        function startPeerConnection() {
-            peerConnection = new RTCPeerConnection();
-            dataChannel = peerConnection.createDataChannel("chat");
-
-            dataChannel.onmessage = (event) => displayMessage(event.data, false);
-            dataChannel.onopen = () => console.log("Connection opened!");
-
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    console.log("New ICE candidate:", event.candidate);
+            pubnub.subscribe({ channels: ["chatroom"] });
+            pubnub.addListener({
+                message: (event) => {
+                    const { name, text } = event.message;
+                    document.getElementById("messages").innerHTML += `<p><strong>${name}:</strong> ${text}</p>`;
                 }
-            };
-
-            peerConnection.createOffer().then(offer => {
-                return peerConnection.setLocalDescription(offer);
-            }).then(() => {
-                console.log("Offer created:", peerConnection.localDescription);
             });
         }
 
         function sendMessage() {
             const message = document.getElementById("messageInput").value.trim();
             if (message) {
-                displayMessage(message, true);
-                dataChannel.send(JSON.stringify({ name: userName, text: message }));
+                pubnub.publish({
+                    channel: "chatroom",
+                    message: { name: userName, text: message }
+                });
                 document.getElementById("messageInput").value = "";
             }
-        }
-
-        function displayMessage(message, isSelf) {
-            const messageData = isSelf ? { name: userName, text: message } : JSON.parse(message);
-            messagesDiv.innerHTML += `<p><strong>${messageData.name}:</strong> ${messageData.text}</p>`;
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
     </script>
 
