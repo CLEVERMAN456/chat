@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat!</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        #chat { display: none; max-width: 400px; margin: auto; border: 1px solid #ccc; padding: 10px; }
+        #messages { height: 200px; overflow-y: scroll; border-bottom: 1px solid #ccc; }
+        input, button { width: 100%; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <h2>Peer-to-Peer Chat Room</h2>
+    
+    <div id="login">
+        <input type="text" id="nameInput" placeholder="Enter your name">
+        <button onclick="joinChat()">Join Chat</button>
+    </div>
+
+    <div id="chat">
+        <div id="messages"></div>
+        <input type="text" id="messageInput" placeholder="Type a message...">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <script>
+        let userName = "";
+        let peerConnection;
+        let dataChannel;
+        const messagesDiv = document.getElementById("messages");
+
+        function joinChat() {
+            userName = document.getElementById("nameInput").value.trim();
+            if (!userName) {
+                alert("Please enter your name.");
+                return;
+            }
+            
+            document.getElementById("login").style.display = "none";
+            document.getElementById("chat").style.display = "block";
+
+            startPeerConnection();
+        }
+
+        function startPeerConnection() {
+            peerConnection = new RTCPeerConnection();
+            dataChannel = peerConnection.createDataChannel("chat");
+
+            dataChannel.onmessage = (event) => displayMessage(event.data, false);
+            dataChannel.onopen = () => console.log("Connection opened!");
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    console.log("New ICE candidate:", event.candidate);
+                }
+            };
+
+            peerConnection.createOffer().then(offer => {
+                return peerConnection.setLocalDescription(offer);
+            }).then(() => {
+                console.log("Offer created:", peerConnection.localDescription);
+            });
+        }
+
+        function sendMessage() {
+            const message = document.getElementById("messageInput").value.trim();
+            if (message) {
+                displayMessage(message, true);
+                dataChannel.send(JSON.stringify({ name: userName, text: message }));
+                document.getElementById("messageInput").value = "";
+            }
+        }
+
+        function displayMessage(message, isSelf) {
+            const messageData = isSelf ? { name: userName, text: message } : JSON.parse(message);
+            messagesDiv.innerHTML += `<p><strong>${messageData.name}:</strong> ${messageData.text}</p>`;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+    </script>
+
+</body>
+</html>
